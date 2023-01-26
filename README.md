@@ -115,3 +115,45 @@ const OPERATORS = {
 ```
 
 3. Parser 만들기
+
+- [ ] 결과를 담아둘 트리 구조 생성
+- [ ] parsing 할 lexeme들을 담아둘 Stack 생성
+- [ ] parse 과정 설계
+
+```javascript
+// `<price unit="dallor" type="low"><BODY>29.99</BODY></price>`;
+// 검증, 역할 지정, 스택에 저장, 스택에서 삭제
+
+class Tag {
+  constructor() {
+    this.startToken = null,
+    this.lastToken = null,
+    this.isOpened = {
+      startTag: false,
+      closeTag: false,
+      wholeTag: false,
+    },
+    this.element = null,
+    this.attributes = {
+      key: null,
+      value: null,
+      isOpened: false
+    },
+    this.text = null;
+  }
+}
+
+// 검증 절차 예시
+- '<': `lastToken`으로 저장
+- 'price': 이전 token이 '<' 확인, 새로운 태그 생성, '<'을 'startToken', 'lastToken' 으로 저장, `isOpened.startTag = true`, `isTagClosed: false` 속성도 추가. 'price'는 'element'로 tree에 저장
+- 'unit': 이전 token이 '<'가 아님을 확인, 'lastToken' 으로 저장
+- '=': 이전 token을 'key' 로 지정, 'currentTag' - 'attributes' 에 `{key: unit, value: null, isClosed: false}`로 지정.
+- 'dollar': 'attributes' 중 isOpened 가 true 인 항목을 찾아 value로 지정
+- 'type': 이전 token이 '<'가 아님을 확인, 'lastToken' 으로 저장
+- '>': `isOpened.start = false`
+- '29.9': text로 저장
+- '<': 'lastToken'으로 저장
+- '/': 'lastToken'이 '<'임을 확인, isOpened.closedTag = true로 변경
+- 'price': 'lastToken'이 '/'임을 확인, 'isOpened.closedTag = true' 임을 확인 후 'element'를 대조
+- '>': 'isOpened.closedTag = false'
+```
