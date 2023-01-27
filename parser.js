@@ -24,11 +24,22 @@ class Tree {
   }
 }
 
+const Type = {
+  startTagOpen: 1,
+  endTagOpen: 2,
+  startTagElement: 3,
+  endTagElement: 4,
+  startTagClose: 5,
+  endTagClose: 6,
+  attributeKey: 7,
+  attributeValue: 8,
+  text: 9,
+};
+
 class Tag {
   constructor() {
-    this.startToken = null;
     this.isStartTagOpened = false;
-    this.isCloseTagOpened = false;
+    this.isEndTagOpened = false;
 
     this.element = null;
     this.attributes = [];
@@ -39,89 +50,113 @@ class Tag {
 class Parser {
   constructor() {
     this.stack = new Stack();
-    this.lastToken = null;
+    this.currentTag = null;
   }
 
-  generateTag(lexeme) {
-    const tag = new Tag();
-    tag.isStartTagOpened = true;
-    tag.element = lexeme;
-    this.stack.push(tag);
+  checkType({ lastLexeme, lexeme, nextLexeme }) {
+    let currentType = null;
+    const isLiteral = new RegExp(/token\(.+?\)/).test(lexeme);
+    switch (lexeme) {
+      case 'LeftArrowBracker':
+        currentType = !lastLexeme ? Type.startTagOpen : Type.endTagOpen;
+        break;
+      case 'RightArrowBracker':
+        if (this.currentTag.isStartTagOpened) {
+          currentType = Type.startTagClose;
+          break;
+        }
+        if (this.currentTag.isEndTagOpened) {
+          currentType = Type.endTagClose;
+          break;
+        }
+    }
+
+    switch (lastLexeme) {
+      case 'LeftArrowBracker':
+        currentType = Type.startTagElement;
+        break;
+      case 'RightArrowBracker':
+        if (isLiteral) {
+          currentType = Type.text;
+          break;
+        }
+      case 'Equal':
+        currentType = Type.attributeValue;
+        break;
+    }
+
+    switch (nextLexeme) {
+      case 'Equal':
+        currentType = Type.attributeKey;
+        break;
+    }
+
+    return currentType;
+  }
+
+  tagFactory(type, { lastLexeme, lexeme }) {
+    if (this.currentTag === null) {
+      this.currentTag = new Tag();
+    }
+    switch (type) {
+      case Type.startTagOpen:
+        this.currentTag.isStartTagOpened = true;
+        break;
+      case Type.endTagOpen:
+        this.currentTag.isEndTagOpened = true;
+        break;
+      case Type.startTagElement:
+        this.currentTag.element = lexeme;
+        break;
+      case Type.endTagElement:
+        if (this.currentTag.element !== lexeme) break;
+        break;
+      case Type.startTagClose:
+        this.currentTag.isStartTagOpened = false;
+        break;
+      case Type.endTagClose:
+        this.currentTag.isEndTagOpened = false;
+        this.stack.push(this.currentTag);
+        this.currentTag = null;
+        break;
+      case Type.attributeKey:
+        const attribute = {
+          key: lastLexeme,
+          value: null,
+          isOpened: true,
+        };
+        this.currentTag.attributes.push(attribute);
+        break;
+      case Type.attributeValue:
+        if (!this.currentTag) break;
+        Object.values(this.currentTag.attributes).forEach((attribute) => {
+          if (attribute.isOpened) attribute.value = lexeme;
+          attribute.isOpened = false;
+        });
+        break;
+      case Type.text:
+        this.currentTag.text = lexeme;
+        break;
+      default:
+        // console.error('Error', lexeme);
+        break;
+    }
   }
 
   parse(lexemeContiner) {
-    const stack = this.stack;
-    let currentTag = null;
-    lexemeContiner.forEach((lexeme) => {
-      if (!this.lastToken) return (this.lastToken = lexeme);
+    lexemeContiner.forEach((lexeme, i) => {
+      const lastLexeme = i !== 0 ? lexemeContiner[i - 1] : null;
+      const nextLexeme = lexeme.length !== i + 1 ? lexemeContiner[i + 1] : null;
+      const type = this.checkType({ lastLexeme, lexeme, nextLexeme });
 
-      const isFirstElement =
-        this.lastToken === 'LeftArrowBracker' && lexeme !== 'Div';
-      if (isFirstElement) {
-        this.generateTag(lexeme);
-        currentTag = stack.getLast();
-        currentTag.startToken = this.lastToken;
-        this.lastToken = lexeme;
-        return;
-      }
-
-      const isLastElement = this.lastToken === 'Div';
-      if (isLastElement) {
-        const tag = stack.getLast();
-        if (tag.isCloseTagOpened) tag.isCloseTagOpened = false;
-        this.lastToken = lexeme;
-        return;
-      }
-
-      switch (lexeme) {
-        case 'LeftArrowBracker':
-          this.lastToken = lexeme;
-          break;
-        case 'RightArrowBracker':
-          const isStartTag = currentTag.isStartTagOpened;
-          if (isStartTag) {
-            currentTag.isStartTagOpened = false;
-            this.lastToken = lexeme;
-            break;
-          }
-          const isCloseTag = currentTag.isCloseTagOpened;
-          if (isCloseTag) {
-            currentTag.isCloseTagOpened = false;
-            this.lastToken = null;
-            break;
-          }
-        case 'Equal':
-          const attribute = {
-            key: this.lastToken,
-            value: null,
-            isOpened: true,
-          };
-          currentTag.attributes.push(attribute);
-          this.lastToken = lexeme;
-          break;
-        case 'Div':
-          if (this.lastToken === 'LeftArrowBracker')
-            currentTag.isCloseTagOpened = true;
-          this.lastToken = lexeme;
-          break;
-        default:
-          const isAttributeValue = currentTag.isStartTagOpened;
-          if (isAttributeValue) {
-            Object.values(currentTag.attributes).forEach((attribute) => {
-              if (attribute.isOpened) attribute.value = lexeme;
-              attribute.isOpened = false;
-              this.lastToken = lexeme;
-            });
-          }
-
-          const isText = !currentTag.isStartTagOpened;
-          if (isText) {
-            currentTag.text = lexeme;
-            this.lastToken = lexeme;
-          }
+      if (type) {
+        console.log(Object.keys(Type).find((v) => Type[v] === type));
+        this.tagFactory(type, { lastLexeme, lexeme, nextLexeme });
       }
     });
-    console.log({ stack: this.stack.arr });
+    console.log('current', this.currentTag);
+
+    console.log({ stack: this.stack });
     return this.stack;
   }
 }
@@ -145,8 +180,9 @@ const data3 = `[1, [2,[3]],'hello', 'world', null]`;
 const data4 = `[ 23, “JK”, false ]`;
 const error1 = `<HTML lang="ko"></BODY>`;
 
-const lexemeContiner = new LexerAnalyer().input(data3);
-// new Parser().parse(lexemeContiner);
+const lexemeContiner = new LexerAnalyer().input(data1);
+
+new Parser().parse(lexemeContiner);
 
 // 코드 정리
 // text가 다음 tag로 가는 문제 발생하긴 함
