@@ -46,11 +46,13 @@ class Tag {
     this.position = null;
     this.element = null;
     this.attributes = [];
-
     this.isOpened = false;
-    this.isStartTagOpened = false;
-    this.isEndTagOpened = false;
-    this.text = null;
+  }
+}
+
+class Text {
+  constructor(lexeme) {
+    this.text = lexeme;
   }
 }
 
@@ -103,7 +105,7 @@ class Parser {
     if (this.currentTag === null) {
       this.currentTag = new Tag();
     }
-    // console.log(Object.keys(Type).find((v) => Type[v] === type));
+
     switch (type) {
       case Type.startTagOpen:
         this.currentTag.isOpened = true;
@@ -146,10 +148,10 @@ class Parser {
         });
         break;
       case Type.text:
-        this.currentTag.text = lexeme;
+        this.stack.push(new Text(lexeme));
         break;
       default:
-        // console.error('Error', lexeme);
+        console.error('Error', lexeme);
         break;
     }
   }
@@ -159,16 +161,12 @@ class Parser {
       const lastLexeme = i !== 0 ? lexemeContiner[i - 1] : null;
       const nextLexeme = lexeme.length !== i + 1 ? lexemeContiner[i + 1] : null;
       const type = this.checkType({ lastLexeme, lexeme, nextLexeme });
-
+      // console.log(Object.keys(Type).find((v) => Type[v] === type));
       if (type) {
-        // console.log('type', type);
-
         this.tagFactory(type, { lastLexeme, lexeme, nextLexeme });
       }
     });
-    // console.log('current', this.currentTag);
-
-    console.log({ stack: this.stack.arr });
+    // console.log({ stack: this.stack.arr });
     return this.stack;
   }
 }
