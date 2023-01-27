@@ -49,7 +49,3 @@ const data2 = `<price><BODY>29.99</BODY></price>`;
 const data3 = `[1, [2,[3]],'hello', 'world', null]`;
 const data4 = `[ 23, “JK”, false ]`;
 const error1 = `<HTML lang="ko"></BODY>`;
-
-const data1Tokens = new LexerAnalyer(data1);
-
-data1Tokens.input(data1);

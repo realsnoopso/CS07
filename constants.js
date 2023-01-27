@@ -1,5 +1,5 @@
 const IDENTIFIER = { HtmlIdentifier: 'HTML', BodyIdentifier: 'BODY' };
-const SEPARATORS = {
+export const SEPARATORS = {
   LeftArrowBracker: `<`,
   RightArrowBracker: `>`,
   LeftSquareBracker: `[`,
