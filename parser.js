@@ -36,11 +36,18 @@ const Type = {
   text: 9,
 };
 
+const Position = {
+  start: 1,
+  end: 2,
+};
+
 class Tag {
   constructor() {
+    this.position = null;
     this.element = null;
     this.attributes = [];
 
+    this.isOpened = false;
     this.isStartTagOpened = false;
     this.isEndTagOpened = false;
     this.text = null;
@@ -54,18 +61,21 @@ class Parser {
   }
 
   checkType({ lastLexeme, lexeme, nextLexeme }) {
+    const currentTag = this.currentTag;
     switch (lexeme) {
       case 'LeftArrowBracker':
         return nextLexeme !== 'Div' ? Type.startTagOpen : Type.endTagOpen;
 
       case 'RightArrowBracker':
-        if (this.currentTag.isStartTagOpened) {
+        if (currentTag.position === Position.start && currentTag.isOpened) {
           return Type.startTagClose;
         }
-        if (this.currentTag.isEndTagOpened) {
+        if (currentTag.position === Position.end && currentTag.isOpened) {
           return Type.endTagClose;
         }
       case 'Div':
+        return;
+      case 'Equal':
         return;
       default:
         switch (lastLexeme) {
@@ -79,7 +89,6 @@ class Parser {
             }
           case 'Equal':
             return Type.attributeValue;
-
           default:
             switch (nextLexeme) {
               case 'Equal':
@@ -94,26 +103,29 @@ class Parser {
     if (this.currentTag === null) {
       this.currentTag = new Tag();
     }
+    // console.log(Object.keys(Type).find((v) => Type[v] === type));
     switch (type) {
       case Type.startTagOpen:
-        this.currentTag.isStartTagOpened = true;
+        this.currentTag.isOpened = true;
+        this.currentTag.position = Position.start;
         break;
       case Type.endTagOpen:
-        this.currentTag.isEndTagOpened = true;
+        this.currentTag.isOpened = true;
+        this.currentTag.position = Position.end;
         break;
       case Type.startTagElement:
         this.currentTag.element = lexeme;
         break;
       case Type.endTagElement:
         this.currentTag.element = lexeme;
-        if (this.currentTag.element !== lexeme) break;
         break;
       case Type.startTagClose:
-        this.currentTag.isStartTagOpened = false;
+        this.currentTag.isOpened = false;
         this.stack.push(this.currentTag);
+        this.currentTag = null;
         break;
       case Type.endTagClose:
-        this.currentTag.isEndTagOpened = false;
+        this.currentTag.isOpened = false;
         this.stack.push(this.currentTag);
         this.currentTag = null;
         break;
@@ -126,10 +138,11 @@ class Parser {
         this.currentTag.attributes.push(attribute);
         break;
       case Type.attributeValue:
-        if (!this.currentTag) break;
-        Object.values(this.currentTag.attributes).forEach((attribute) => {
-          if (attribute.isOpened) attribute.value = lexeme;
-          attribute.isOpened = false;
+        Object.values(this.currentTag.attributes).forEach((attribute, i) => {
+          if (attribute.isOpened) {
+            this.currentTag.attributes[i].value = lexeme;
+            this.currentTag.attributes[i].isOpened = false;
+          }
         });
         break;
       case Type.text:
@@ -150,16 +163,33 @@ class Parser {
       if (type) {
         // console.log('type', type);
 
-        console.log(Object.keys(Type).find((v) => Type[v] === type));
         this.tagFactory(type, { lastLexeme, lexeme, nextLexeme });
       }
     });
     // console.log('current', this.currentTag);
 
-    // console.log({ stack: this.stack });
+    console.log({ stack: this.stack.arr });
     return this.stack;
   }
 }
+
+const data1Types = `startTagOpen
+startTagElement
+attributeKey
+attributeValue
+attributeKey
+attributeValue
+startTagClose
+startTagOpen
+startTagElement
+startTagClose
+text
+endTagOpen
+endTagElement
+endTagClose
+endTagOpen
+endTagElement
+endTagClose`;
 
 // - '<': `lastToken`으로 저장
 // - 'price': 이전 token이 '<' 확인, 새로운 태그 생성, '<'을 'startToken'로 지정, `isOpened.startTag = true`속성도 추가. 'price'는 'element'로 tree에 저장
