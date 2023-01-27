@@ -23,7 +23,7 @@ export class LexerAnalyer {
       }
       word += char;
     }
-    console.log('tokenize', { tokenContainer });
+    // console.log('tokenize', { tokenContainer });
     return tokenContainer;
   }
 
@@ -35,7 +35,7 @@ export class LexerAnalyer {
       }
       return lexemeContainer.push(`token(${token})`);
     });
-    console.log('classify', { lexemeContainer });
+    // console.log('classify', { lexemeContainer });
     return lexemeContainer;
   }
 }

@@ -38,11 +38,11 @@ const Type = {
 
 class Tag {
   constructor() {
-    this.isStartTagOpened = false;
-    this.isEndTagOpened = false;
-
     this.element = null;
     this.attributes = [];
+
+    this.isStartTagOpened = false;
+    this.isEndTagOpened = false;
     this.text = null;
   }
 }
@@ -54,44 +54,40 @@ class Parser {
   }
 
   checkType({ lastLexeme, lexeme, nextLexeme }) {
-    let currentType = null;
-    const isLiteral = new RegExp(/token\(.+?\)/).test(lexeme);
     switch (lexeme) {
       case 'LeftArrowBracker':
-        currentType = !lastLexeme ? Type.startTagOpen : Type.endTagOpen;
-        break;
+        return nextLexeme !== 'Div' ? Type.startTagOpen : Type.endTagOpen;
+
       case 'RightArrowBracker':
         if (this.currentTag.isStartTagOpened) {
-          currentType = Type.startTagClose;
-          break;
+          return Type.startTagClose;
         }
         if (this.currentTag.isEndTagOpened) {
-          currentType = Type.endTagClose;
-          break;
+          return Type.endTagClose;
+        }
+      case 'Div':
+        return;
+      default:
+        switch (lastLexeme) {
+          case 'Div':
+            return Type.endTagElement;
+          case 'LeftArrowBracker':
+            return Type.startTagElement;
+          case 'RightArrowBracker':
+            if (nextLexeme === 'LeftArrowBracker') {
+              return Type.text;
+            }
+          case 'Equal':
+            return Type.attributeValue;
+
+          default:
+            switch (nextLexeme) {
+              case 'Equal':
+                return Type.attributeKey;
+            }
         }
     }
-
-    switch (lastLexeme) {
-      case 'LeftArrowBracker':
-        currentType = Type.startTagElement;
-        break;
-      case 'RightArrowBracker':
-        if (isLiteral) {
-          currentType = Type.text;
-          break;
-        }
-      case 'Equal':
-        currentType = Type.attributeValue;
-        break;
-    }
-
-    switch (nextLexeme) {
-      case 'Equal':
-        currentType = Type.attributeKey;
-        break;
-    }
-
-    return currentType;
+    return null;
   }
 
   tagFactory(type, { lastLexeme, lexeme }) {
@@ -109,10 +105,12 @@ class Parser {
         this.currentTag.element = lexeme;
         break;
       case Type.endTagElement:
+        this.currentTag.element = lexeme;
         if (this.currentTag.element !== lexeme) break;
         break;
       case Type.startTagClose:
         this.currentTag.isStartTagOpened = false;
+        this.stack.push(this.currentTag);
         break;
       case Type.endTagClose:
         this.currentTag.isEndTagOpened = false;
@@ -150,13 +148,15 @@ class Parser {
       const type = this.checkType({ lastLexeme, lexeme, nextLexeme });
 
       if (type) {
+        // console.log('type', type);
+
         console.log(Object.keys(Type).find((v) => Type[v] === type));
         this.tagFactory(type, { lastLexeme, lexeme, nextLexeme });
       }
     });
-    console.log('current', this.currentTag);
+    // console.log('current', this.currentTag);
 
-    console.log({ stack: this.stack });
+    // console.log({ stack: this.stack });
     return this.stack;
   }
 }
