@@ -43,36 +43,36 @@ const Position = {
   end: 2,
 };
 
-class Text {
-  constructor(lexeme) {
-    this.text = lexeme;
-  }
-}
-
 class Tree {
   constructor() {
     this.root = null;
-    this.depth = 0;
+    this.current = null;
   }
 
-  addChild(node, depth) {
+  addChild(node) {
     if (!this.root) {
       this.root = node;
-      this.depth = depth;
+      this.current = node;
       return;
     }
 
-    this.root.children = node;
-    this.depth = depth;
+    this.current.children = node;
+    console.log('ddd', this.current.children);
+    this.current.children = this.current;
+  }
+
+  get() {
+    console.log(this.root.children);
+    return 'tess';
   }
 }
 
 class Node {
-  constructor({ element, attributes, depth }) {
-    this.element = element;
-    this.attributes = attributes;
-    this.children = [];
-    this.depth = depth;
+  constructor() {
+    this.element = null;
+    this.attributes = null;
+    this.text = null;
+    this.children = null;
   }
 }
 
@@ -98,6 +98,12 @@ export class Parser {
     let segment = [];
     lexemeContiner.forEach((lexeme, i) => {
       const nextLexeme = lexemeContiner[i + 1];
+      if (!nextLexeme) {
+        segment.push(lexeme);
+        segmentContainer.push(segment);
+        segment = [];
+        return;
+      }
       if (nextLexeme === 'LeftArrowBracker') {
         segment.push(lexeme);
         segmentContainer.push(segment);
@@ -106,13 +112,48 @@ export class Parser {
       }
       return segment.push(lexeme);
     });
+
     if (!this.tagFactory(segmentContainer)) return 'Error: Invalid tag';
-    console.log(this.stack);
+
+    this.generateTree(this.stack);
+
+    console.log('-------------');
+    console.log(this.tree.get());
+    // console.log(this.tree.root.children);
+    // console.log(this.tree.root.children.children);
+  }
+
+  generateTree(stack) {
+    let node = null;
+    let length = stack.arr.length;
+
+    let i = 0;
+    while (i <= length) {
+      let tag = stack.get(i);
+      let compare = stack.pop();
+
+      if (!tag || !tag.element || tag.element !== compare.element) {
+        return;
+      }
+
+      node = new Node();
+      const { element, attributes, text } = tag;
+      node.element = element;
+      if (attributes) node.attributes = attributes;
+      if (text) node.text = text;
+
+      console.log(node);
+      this.tree.addChild(node);
+      node = null;
+      i++;
+    }
+    return true;
   }
 
   tagFactory(segmentContainer) {
     let tag = new Tag();
     segmentContainer.forEach((segment, i) => {
+      // console.log(segment);
       const position = segment.includes(TOKENS.get('/'))
         ? Position.end
         : Position.start;
@@ -121,13 +162,17 @@ export class Parser {
       const startTag = segment[0];
       const endTagIndex = this.findCloseTagIndex(segment);
       const endTag = segment[endTagIndex];
+
       const isTagValid = this.checkTagType(startTag, endTag);
       if (!isTagValid) return false;
       tag.type = startTag;
 
       if (tag.position === Position.end) {
+        const element = segment[2];
+        tag.element = element;
         this.stack.push(tag);
         tag = new Tag();
+
         return true;
       }
 
@@ -183,8 +228,7 @@ const TAG_TYPE = {
   squareBarcker: 2,
 };
 
-const data1 = `<price unit="dallor" type="low"><test>ddd</test><body>29.99</body></price>`;
-const data2 = `<price unit="dallor" type="low">/<test>ddd/</test><body>29.99</body></price>`;
+const data1 = `<price unit="dallor" type="low"><body><test>ddd</test></body></price>`;
 
 const lexemeContiner = new LexerAnalyer().input(data1);
 const parser = new Parser();
